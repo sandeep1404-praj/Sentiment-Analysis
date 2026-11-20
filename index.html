@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hindi Sentiment Analyzer | हिंदी भावना विश्लेषक</title>
+  <meta name="description" content="Analyze the sentiment of Hindi text using AI-powered machine learning models. Supports Positive, Negative, and Neutral classification." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:    #0a0a14;
+      --bg-card:    #12121f;
+      --bg-surface: #1a1a2e;
+      --border:     rgba(255,255,255,0.08);
+      --border-glow:rgba(124,77,255,0.35);
+      --text-primary:   #f0f0ff;
+      --text-secondary: #9090b8;
+      --text-muted:     #5a5a80;
+      --purple:    #7c4dff;
+      --purple-light:#a07af0;
+      --pink:      #e040fb;
+      --cyan:      #18ffff;
+      --positive:  #00e676;
+      --neutral:   #ffab40;
+      --negative:  #ff5252;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== ANIMATED BACKGROUND ===== */
+    .bg-orbs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      animation: float 12s ease-in-out infinite;
+    }
+    .orb-1 { width:500px; height:500px; background: var(--purple); top:-150px; left:-100px; animation-delay: 0s; }
+    .orb-2 { width:400px; height:400px; background: var(--pink); bottom:-120px; right:-80px; animation-delay: 4s; }
+    .orb-3 { width:300px; height:300px; background: var(--cyan); top:40%; left:60%; animation-delay: 8s; }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%       { transform: translate(30px, -40px) scale(1.05); }
+      66%       { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* ===== LAYOUT ===== */
+    .wrapper { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 20px 80px; }
+
+    /* ===== HEADER ===== */
+    header {
+      text-align: center;
+      padding: 36px 20px 28px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(124,77,255,0.15);
+      border: 1px solid rgba(124,77,255,0.4);
+      border-radius: 100px;
+      padding: 6px 18px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--purple-light);
+      margin-bottom: 24px;
+    }
+    .badge .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--positive);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--purple-light) 50%, var(--pink) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .subtitle {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      max-width: 560px;
+      margin: 0 auto 16px;
+    }
+    .hindi-label {
+      font-family: 'Noto Sans Devanagari', sans-serif;
+      font-size: 1.5rem;
+      color: var(--purple-light);
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    /* ===== STATUS BAR ===== */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0;
+    }
+    .status-indicator {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #555;
+      transition: background var(--transition);
+    }
+    .status-indicator.online  { background: var(--positive); box-shadow: 0 0 8px var(--positive); }
+    .status-indicator.offline { background: var(--negative); box-shadow: 0 0 8px var(--negative); }
+    .status-indicator.loading { background: var(--neutral); animation: pulse-dot 1s infinite; }
+
+    /* ===== MAIN CARD ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      transition: border-color var(--transition);
+    }
+    .card:hover { border-color: var(--border-glow); }
+
+    /* ===== TABS ===== */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: all var(--transition);
+    }
+    .tab-btn.active {
+      background: var(--purple);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(124,77,255,0.4);
+    }
+    .tab-btn:not(.active):hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+    /* ===== TAB PANELS ===== */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ===== TEXTAREA ===== */
+    .input-group { position: relative; margin-bottom: 20px; }
+    .input-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      color: var(--text-primary);
+      font-size: 1.05rem;
+      font-family: 'Noto Sans Devanagari', 'Inter', sans-serif;
+      line-height: 1.8;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    textarea::placeholder { color: var(--text-muted); font-family: 'Noto Sans Devanagari', sans-serif; }
+    textarea:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(124,77,255,0.18);
+    }
+    .char-count {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ===== EXAMPLE PILLS ===== */
+    .examples-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .pill {
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-family: 'Noto Sans Devanagari', sans-serif;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .pill:hover { border-color: var(--purple); color: var(--text-primary); background: rgba(124,77,255,0.12); }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 32px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition);
+      letter-spacing: 0.02em;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(124,77,255,0.35);
+      width: 100%;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(124,77,255,0.5); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* ===== SPINNER ===== */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+      flex-shrink: 0;
+    }
+    .spinner.active { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== RESULT CARD ===== */
+    .result {
+      margin-top: 28px;
+      display: none;
+      animation: slideUp 0.4s cubic-bezier(0.4,0,0.2,1);
+    }
+    .result.show { display: block; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-main {
+      border-radius: var(--radius-md);
+      padding: 28px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 16px;
+      border: 1px solid transparent;
+      transition: all var(--transition);
+    }
+    .result-main.positive { background: rgba(0,230,118,0.08); border-color: rgba(0,230,118,0.3); }
+    .result-main.negative { background: rgba(255,82,82,0.08); border-color: rgba(255,82,82,0.3); }
+    .result-main.neutral  { background: rgba(255,171,64,0.08); border-color: rgba(255,171,64,0.3); }
+
+    .result-emoji { font-size: 3.5rem; line-height: 1; }
+    .result-text .sentiment-label {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .result-text .sentiment-label.positive { color: var(--positive); }
+    .result-text .sentiment-label.negative { color: var(--negative); }
+    .result-text .sentiment-label.neutral  { color: var(--neutral); }
+    .result-text .analyzed-text {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-style: italic;
+      font-family: 'Noto Sans Devanagari', sans-serif;
+    }
+
+    /* ===== CONFIDENCE BARS ===== */
+    .confidence-section { margin-top: 0; }
+    .conf-title {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .conf-bars { display: flex; flex-direction: column; gap: 10px; }
+    .conf-item { display: flex; align-items: center; gap: 12px; }
+    .conf-item-label { font-size: 0.82rem; color: var(--text-secondary); width: 68px; font-weight: 500; }
+    .conf-bar-track {
+      flex: 1;
+      height: 8px;
+      background: var(--bg-surface);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .conf-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+      width: 0;
+    }
+    .conf-bar-fill.positive { background: linear-gradient(90deg, #00c853, var(--positive)); }
+    .conf-bar-fill.negative { background: linear-gradient(90deg, #d32f2f, var(--negative)); }
+    .conf-bar-fill.neutral  { background: linear-gradient(90deg, #e65100, var(--neutral)); }
+    .conf-pct { font-size: 0.8rem; color: var(--text-secondary); width: 42px; text-align: right; font-weight: 600; }
+
+    /* ===== HISTORY ===== */
+    .history-section { margin-top: 28px; }
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .history-title { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .btn-clear {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color var(--transition);
+      font-weight: 500;
+    }
+    .btn-clear:hover { color: var(--negative); }
+    .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .history-item:hover { border-color: var(--border-glow); transform: translateX(4px); }
+    .history-emoji { font-size: 1.1rem; }
+    .history-text { flex: 1; font-size: 0.88rem; font-family: 'Noto Sans Devanagari', sans-serif; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+    .history-badge.positive { background: rgba(0,230,118,0.15); color: var(--positive); }
+    .history-badge.negative { background: rgba(255,82,82,0.15); color: var(--negative); }
+    .history-badge.neutral  { background: rgba(255,171,64,0.15); color: var(--neutral); }
+    .history-empty { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 24px; }
+
+    /* ===== BATCH TAB ===== */
+    .batch-input {
+      width: 100%;
+      min-height: 200px;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-family: 'Noto Sans Devanagari', 'Inter', sans-serif;
+      line-height: 2;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition);
+      margin-bottom: 20px;
+    }
+    .batch-input::placeholder { color: var(--text-muted); }
+    .batch-input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124,77,255,0.18); }
+    .batch-results { display: none; margin-top: 24px; }
+    .batch-results.show { display: block; }
+    .batch-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      animation: slideUp 0.3s ease;
+    }
+    .batch-num { font-size: 0.75rem; color: var(--text-muted); padding-top: 2px; min-width: 20px; }
+    .batch-text { flex: 1; font-size: 0.92rem; font-family: 'Noto Sans Devanagari', sans-serif; color: var(--text-primary); }
+    .batch-sentiment {
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 3px 12px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .batch-sentiment.positive { background: rgba(0,230,118,0.15); color: var(--positive); }
+    .batch-sentiment.negative { background: rgba(255,82,82,0.15); color: var(--negative); }
+    .batch-sentiment.neutral  { background: rgba(255,171,64,0.15); color: var(--neutral); }
+
+    /* ===== STATS SECTION ===== */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      text-align: center;
+    }
+    .stat-val { font-size: 1.6rem; font-weight: 800; }
+    .stat-val.positive { color: var(--positive); }
+    .stat-val.negative { color: var(--negative); }
+    .stat-val.neutral  { color: var(--neutral); }
+    .stat-lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ===== ERROR ===== */
+    .error-box {
+      display: none;
+      padding: 14px 18px;
+      background: rgba(255,82,82,0.1);
+      border: 1px solid rgba(255,82,82,0.35);
+      border-radius: var(--radius-sm);
+      color: var(--negative);
+      font-size: 0.88rem;
+      margin-top: 16px;
+      animation: slideUp 0.3s ease;
+    }
+    .error-box.show { display: block; }
+
+    /* ===== FOOTER ===== */
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      line-height: 1.7;
+    }
+    footer a { color: var(--purple-light); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 600px) {
+      .card { padding: 22px; }
+      .result-main { flex-direction: column; text-align: center; }
+      .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .stat-val { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background orbs -->
+<div class="bg-orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="badge">
+      <span class="dot"></span>
+      AI Powered · Linear SVM · TF-IDF
+    </div>
+    <span class="hindi-label">हिंदी भावना विश्लेषक</span>
+    <h1>Hindi Sentiment Analyzer</h1>
+    <p class="subtitle">
+      Analyze the emotional tone of Hindi text in real-time using
+      machine learning trained on the SentiHin-2500 dataset.
+    </p>
+
+    <div class="status-bar">
+      <div class="status-indicator loading" id="statusDot"></div>
+      <span id="statusText">Checking model status…</span>
+    </div>
+  </header>
+
+  <!-- MAIN CARD -->
+  <div class="card">
+
+    <!-- TABS -->
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" id="tab-single" role="tab" onclick="switchTab('single')">Single Text</button>
+      <button class="tab-btn" id="tab-batch"  role="tab" onclick="switchTab('batch')">Batch Analysis</button>
+    </div>
+
+    <!-- === SINGLE TAB === -->
+    <div class="tab-panel active" id="panel-single">
+
+      <!-- Examples -->
+      <div class="examples-label">Quick examples</div>
+      <div class="pills">
+        <button class="pill" onclick="fillText('यह फिल्म बहुत अच्छी है।')">यह फिल्म बहुत अच्छी है।</button>
+        <button class="pill" onclick="fillText('यह फिल्म बिल्कुल अच्छी नहीं है।')">बिल्कुल अच्छी नहीं है।</button>
+        <button class="pill" onclick="fillText('फिल्म ठीक ठाक है।')">फिल्म ठीक ठाक है।</button>
+        <button class="pill" onclick="fillText('मुझे यह बहुत पसंद आया।')">मुझे बहुत पसंद आया।</button>
+        <button class="pill" onclick="fillText('यह बहुत खराब अनुभव था।')">बहुत खराब अनुभव था।</button>
+      </div>
+
+      <!-- Textarea -->
+      <div class="input-group">
+        <label class="input-label" for="textInput">Enter Hindi text</label>
+        <textarea id="textInput" placeholder="यहाँ हिंदी में लिखें…" maxlength="1000"
+          oninput="updateCharCount()" onkeydown="handleKey(event)"></textarea>
+        <span class="char-count"><span id="charCount">0</span> / 1000</span>
+      </div>
+
+      <!-- Analyze button -->
+      <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">
+        <span class="spinner" id="spinner"></span>
+        <span id="btnText">Analyze Sentiment</span>
+      </button>
+
+      <!-- Error -->
+      <div class="error-box" id="errorBox"></div>
+
+      <!-- Result -->
+      <div class="result" id="result">
+        <div class="result-main" id="resultMain">
+          <div class="result-emoji" id="resultEmoji"></div>
+          <div class="result-text">
+            <div class="sentiment-label" id="resultLabel"></div>
+            <div class="analyzed-text" id="resultText"></div>
+          </div>
+        </div>
+        <div class="confidence-section" id="confidenceSection" style="display:none;">
+          <div class="conf-title">Confidence Scores</div>
+          <div class="conf-bars">
+            <div class="conf-item">
+              <span class="conf-item-label">Positive</span>
+              <div class="conf-bar-track"><div class="conf-bar-fill positive" id="barPositive"></div></div>
+              <span class="conf-pct" id="pctPositive">—</span>
+            </div>
+            <div class="conf-item">
+              <span class="conf-item-label">Neutral</span>
+              <div class="conf-bar-track"><div class="conf-bar-fill neutral" id="barNeutral"></div></div>
+              <span class="conf-pct" id="pctNeutral">—</span>
+            </div>
+            <div class="conf-item">
+              <span class="conf-item-label">Negative</span>
+              <div class="conf-bar-track"><div class="conf-bar-fill negative" id="barNegative"></div></div>
+              <span class="conf-pct" id="pctNegative">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div class="history-section" id="historySection" style="display:none;">
+        <div class="history-header">
+          <span class="history-title">Recent Analyses</span>
+          <button class="btn-clear" onclick="clearHistory()">Clear All</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+      </div>
+
+    </div><!-- /panel-single -->
+
+    <!-- === BATCH TAB === -->
+    <div class="tab-panel" id="panel-batch">
+      <label class="input-label" for="batchInput">Enter one Hindi sentence per line (max 20)</label>
+      <textarea class="batch-input" id="batchInput"
+        placeholder="यह फिल्म बहुत अच्छी है।&#10;यह बहुत खराब अनुभव था।&#10;फिल्म ठीक ठाक है।"></textarea>
+
+      <button class="btn btn-primary" id="batchBtn" onclick="batchAnalyze()">
+        <span class="spinner" id="batchSpinner"></span>
+        <span id="batchBtnText">Analyze All</span>
+      </button>
+
+      <!-- Error -->
+      <div class="error-box" id="batchError"></div>
+
+      <!-- Results -->
+      <div class="batch-results" id="batchResults">
+        <div class="stats-grid" id="statsGrid"></div>
+        <div style="margin-top:20px;" id="batchList"></div>
+      </div>
+    </div>
+
+  </div><!-- /card -->
+
+  <footer>
+    <p>Trained on <strong>SentiHin-2500</strong> dataset &nbsp;·&nbsp; Model: <strong>Linear SVM + TF-IDF</strong></p>
+    <p style="margin-top:6px;">Backend: <a href="http://localhost:5000/status" target="_blank">API Status</a></p>
+  </footer>
+
+</div><!-- /wrapper -->
+
+<script>
+  const API = "http://localhost:5000";
+  let history = JSON.parse(localStorage.getItem("sa_history") || "[]");
+
+  // ===========================
+  // STATUS CHECK
+  // ===========================
+  async function checkStatus() {
+    try {
+      const r = await fetch(`${API}/status`);
+      const d = await r.json();
+      const dot  = document.getElementById("statusDot");
+      const text = document.getElementById("statusText");
+      if (d.model_loaded) {
+        dot.className = "status-indicator online";
+        text.textContent = "Model loaded · Ready to analyze";
+      } else {
+        dot.className = "status-indicator offline";
+        text.textContent = "Model not found — Run sentiment.ipynb first";
+      }
+    } catch {
+      const dot  = document.getElementById("statusDot");
+      const text = document.getElementById("statusText");
+      dot.className = "status-indicator offline";
+      text.textContent = "Server offline — Start app.py first";
+    }
+  }
+  checkStatus();
+
+  // ===========================
+  // TABS
+  // ===========================
+  function switchTab(tab) {
+    ["single","batch"].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle("active", t === tab);
+      document.getElementById(`panel-${t}`).classList.toggle("active", t === tab);
+    });
+  }
+
+  // ===========================
+  // HELPERS
+  // ===========================
+  function fillText(text) {
+    document.getElementById("textInput").value = text;
+    updateCharCount();
+    document.getElementById("textInput").focus();
+  }
+
+  function updateCharCount() {
+    const len = document.getElementById("textInput").value.length;
+    document.getElementById("charCount").textContent = len;
+  }
+
+  function handleKey(e) {
+    if (e.ctrlKey && e.key === "Enter") analyze();
+  }
+
+  function setLoading(loading) {
+    const btn     = document.getElementById("analyzeBtn");
+    const spinner = document.getElementById("spinner");
+    const btnText = document.getElementById("btnText");
+    btn.disabled = loading;
+    spinner.classList.toggle("active", loading);
+    btnText.textContent = loading ? "Analyzing…" : "Analyze Sentiment";
+  }
+
+  function showError(msg) {
+    const box = document.getElementById("errorBox");
+    box.textContent = msg;
+    box.classList.add("show");
+    document.getElementById("result").classList.remove("show");
+  }
+
+  function hideError() {
+    document.getElementById("errorBox").classList.remove("show");
+  }
+
+  // ===========================
+  // SINGLE ANALYSIS
+  // ===========================
+  async function analyze() {
+    const text = document.getElementById("textInput").value.trim();
+    if (!text) { showError("Please enter some Hindi text."); return; }
+
+    hideError();
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API}/predict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        showError(data.error || "An error occurred.");
+        setLoading(false);
+        return;
+      }
+
+      showResult(data);
+      addToHistory(data);
+    } catch (err) {
+      showError("Could not connect to the server. Make sure app.py is running on port 5000.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function showResult(data) {
+    const sentimentLC = data.sentiment.toLowerCase();
+    const resultDiv   = document.getElementById("result");
+    const mainDiv     = document.getElementById("resultMain");
+
+    document.getElementById("resultEmoji").textContent = data.emoji;
+    document.getElementById("resultLabel").textContent = data.sentiment;
+    document.getElementById("resultLabel").className   = `sentiment-label ${sentimentLC}`;
+    document.getElementById("resultText").textContent  = `"${data.text}"`;
+
+    mainDiv.className = `result-main ${sentimentLC}`;
+
+    // Confidence
+    if (data.confidence) {
+      document.getElementById("confidenceSection").style.display = "block";
+      ["Positive", "Neutral", "Negative"].forEach(key => {
+        const val = data.confidence[key] || 0;
+        const id  = key.toLowerCase();
+        setTimeout(() => {
+          document.getElementById(`bar${key}`).style.width = `${val}%`;
+          document.getElementById(`pct${key}`).textContent = `${val.toFixed(1)}%`;
+        }, 50);
+      });
+    } else {
+      document.getElementById("confidenceSection").style.display = "none";
+    }
+
+    resultDiv.classList.add("show");
+    resultDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // ===========================
+  // HISTORY
+  // ===========================
+  function addToHistory(data) {
+    history.unshift({ text: data.text, sentiment: data.sentiment, emoji: data.emoji });
+    if (history.length > 10) history.pop();
+    localStorage.setItem("sa_history", JSON.stringify(history));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const section = document.getElementById("historySection");
+    const list    = document.getElementById("historyList");
+
+    if (history.length === 0) {
+      section.style.display = "none";
+      return;
+    }
+    section.style.display = "block";
+    list.innerHTML = history.map((h, i) => `
+      <div class="history-item" onclick="fillText('${h.text.replace(/'/g,"\\'")}')">
+        <span class="history-emoji">${h.emoji}</span>
+        <span class="history-text">${h.text}</span>
+        <span class="history-badge ${h.sentiment.toLowerCase()}">${h.sentiment}</span>
+      </div>
+    `).join("");
+  }
+
+  function clearHistory() {
+    history = [];
+    localStorage.removeItem("sa_history");
+    renderHistory();
+  }
+
+  renderHistory(); // init on load
+
+  // ===========================
+  // BATCH ANALYSIS
+  // ===========================
+  async function batchAnalyze() {
+    const raw = document.getElementById("batchInput").value.trim();
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+
+    const errBox = document.getElementById("batchError");
+    errBox.classList.remove("show");
+
+    if (!lines.length) {
+      errBox.textContent = "Please enter at least one sentence.";
+      errBox.classList.add("show");
+      return;
+    }
+
+    const btn     = document.getElementById("batchBtn");
+    const spinner = document.getElementById("batchSpinner");
+    const btnText = document.getElementById("batchBtnText");
+    btn.disabled = true;
+    spinner.classList.add("active");
+    btnText.textContent = "Analyzing…";
+
+    try {
+      const res = await fetch(`${API}/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texts: lines })
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        errBox.textContent = data.error || "An error occurred.";
+        errBox.classList.add("show");
+        return;
+      }
+
+      showBatchResults(data.results);
+    } catch (err) {
+      errBox.textContent = "Could not connect to the server. Make sure app.py is running.";
+      errBox.classList.add("show");
+    } finally {
+      btn.disabled = false;
+      spinner.classList.remove("active");
+      btnText.textContent = "Analyze All";
+    }
+  }
+
+  function showBatchResults(results) {
+    const container = document.getElementById("batchResults");
+    const grid      = document.getElementById("statsGrid");
+    const list      = document.getElementById("batchList");
+
+    const counts = { Positive: 0, Neutral: 0, Negative: 0 };
+    results.forEach(r => { if (r.sentiment) counts[r.sentiment]++; });
+
+    grid.innerHTML = ["Positive","Neutral","Negative"].map(s => `
+      <div class="stat-card">
+        <div class="stat-val ${s.toLowerCase()}">${counts[s]}</div>
+        <div class="stat-lbl">${s}</div>
+      </div>
+    `).join("");
+
+    list.innerHTML = results.map((r, i) => {
+      if (r.error) return `
+        <div class="batch-item">
+          <span class="batch-num">${i+1}</span>
+          <span class="batch-text" style="color:var(--text-muted);">${r.text} — <em>${r.error}</em></span>
+        </div>`;
+      return `
+        <div class="batch-item">
+          <span class="batch-num">${i+1}</span>
+          <span class="batch-text">${r.emoji} ${r.text}</span>
+          <span class="batch-sentiment ${r.sentiment.toLowerCase()}">${r.sentiment}</span>
+        </div>`;
+    }).join("");
+
+    container.classList.add("show");
+    container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+</script>
+</body>
+</html>
